@@ -1,5 +1,9 @@
 name: Deploy Dockerized Next.js to EC2
 
+permissions:
+  id-token: write
+  contents: read
+
 on:
   workflow_dispatch:
     inputs:
@@ -16,7 +20,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::710271913287:role/GitHubActionsRole
-          aws-region: eu-west-2gst 
+          aws-region: eu-west-2
 
       - name: Generate temporary SSH key
         run: |
