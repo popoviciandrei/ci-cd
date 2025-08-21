@@ -12,33 +12,59 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v2
+      # Prevent the autobuild for now
+      #   - name: Checkout Code
+      #     uses: actions/checkout@v2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+      #   - name: Set up Docker Buildx
+      #     uses: docker/setup-buildx-action@v1
 
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v1
+      #   - name: Log in to Docker Hub
+      #     uses: docker/login-action@v1
+      #     with:
+      #       username: ${{ secrets.DOCKER_HUB_USERNAME }}
+      #       password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      #   - name: Build and Push Docker Image
+      #     uses: docker/build-push-action@v2
+      #     with:
+      #       context: .
+      #       push: true
+      #       tags: popoviciandrei/nextjs:latest
+      #   - name: Deploy to EC2
+      #     uses: appleboy/ssh-action@v0.1.3
+      #     with:
+      #       host: ${{ secrets.EC2_HOST }}
+      #       username: ${{ secrets.EC2_USER }}
+      #       key: ${{ secrets.EC2_SSH_KEY }}
+      #       script: |
+      #         docker pull popoviciandrei/nextjs:latest
+      #         docker stop nextjs || true
+      #         docker rm nextjs || true
+      #         docker run -d --name nextjs -p 80:3000 popoviciandrei/nextjs:latest
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+          role-to-assume: ${{ secrets.AWS_IAM_ROLE }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      - name: Build and Push Docker Image
-        uses: docker/build-push-action@v2
-        with:
-          context: .
-          push: true
-          tags: popoviciandrei/nextjs:latest
+      - name: Generate temporary SSH key
+        run: |
+          ssh-keygen -t rsa -f temp_key -N ""
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v0.1.3
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
+      - name: Send SSH public key to instance
+        run: |
+          aws ec2-instance-connect send-ssh-public-key \
+            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+            --availability-zone ${{ secrets.AWS_REGION }} \
+            --instance-os-user ec2-user \
+            --ssh-public-key file://temp_key.pub
+
+      - name: Deploy via SSH
+        run: |
+          ssh -i temp_key -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
             docker pull popoviciandrei/nextjs:latest
             docker stop nextjs || true
             docker rm nextjs || true
             docker run -d --name nextjs -p 80:3000 popoviciandrei/nextjs:latest
+          EOF
