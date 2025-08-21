@@ -16,29 +16,32 @@ jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      #   - name: Configure AWS credentials
+      #     uses: aws-actions/configure-aws-credentials@v4
+      #     with:
+      #       role-to-assume: arn:aws:iam::710271913287:role/GitHubActionsRole
+      #       aws-region: eu-west-2b
+
+      #   - name: Generate temporary SSH key
+      #     run: |
+      #       ssh-keygen -t rsa -f temp_key -N ""
+
+      #   - name: Send SSH public key to instance
+      #     run: |
+      #       aws ec2-instance-connect send-ssh-public-key \
+      #         --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
+      #         --availability-zone eu-west-2b \
+      #         --instance-os-user ec2-user \
+      #         --ssh-public-key file://temp_key.pub
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-action@v0.1.3
         with:
-          role-to-assume: arn:aws:iam::710271913287:role/GitHubActionsRole
-          aws-region: eu-west-2
-
-      - name: Generate temporary SSH key
-        run: |
-          ssh-keygen -t rsa -f temp_key -N ""
-
-      - name: Send SSH public key to instance
-        run: |
-          aws ec2-instance-connect send-ssh-public-key \
-            --instance-id ${{ secrets.EC2_INSTANCE_ID }} \
-            --availability-zone eu-west-2 \
-            --instance-os-user ec2-user \
-            --ssh-public-key file://temp_key.pub
-
-      - name: Deploy via SSH
-        run: |
-          ssh -i temp_key -o StrictHostKeyChecking=no ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
             docker pull popoviciandrei/nextjs:latest
             docker stop nextjs || true
             docker rm nextjs || true
             docker run -d --name nextjs -p 80:3000 popoviciandrei/nextjs:latest
-          EOF
