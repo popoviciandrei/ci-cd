@@ -1,9 +1,12 @@
 name: Deploy Next.js to AWS
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to deploy"
+        required: true
+        default: "main"
 
 jobs:
   build-and-deploy:
